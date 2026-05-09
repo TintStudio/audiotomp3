@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AUDIO FORGE — Format Converter</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --card: #16161f;
+    --border: #2a2a3a;
+    --accent: #e8ff47;
+    --accent2: #ff6b35;
+    --text: #e8e8f0;
+    --muted: #666680;
+    --success: #47ffb8;
+    --error: #ff4747;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 80px;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(232,255,71,0.07) 0%, transparent 60%),
+      repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.02) 60px),
+      repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255,255,255,0.02) 60px);
+  }
+
+  header { text-align: center; margin-bottom: 48px; }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(52px, 10vw, 96px);
+    letter-spacing: 6px; line-height: 1;
+    background: linear-gradient(135deg, #e8ff47 0%, #a0ff00 50%, #47ffb8 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+
+  .tagline {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px; color: var(--muted); letter-spacing: 4px; margin-top: 6px;
+  }
+
+  .badge {
+    display: inline-block; margin-top: 14px; padding: 4px 12px;
+    border: 1px solid var(--border); border-radius: 20px;
+    font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace;
+  }
+  .badge span { color: var(--accent); }
+
+  /* ── Upload: <label> wraps the box so ANY click opens the picker ── */
+  .upload-label {
+    display: block; width: 100%; max-width: 680px; cursor: pointer;
+  }
+
+  .drop-zone {
+    border: 2px dashed var(--border); border-radius: 16px;
+    padding: 60px 40px; text-align: center;
+    transition: all 0.3s; background: var(--card);
+  }
+
+  .upload-label:hover .drop-zone,
+  .upload-label.dragover .drop-zone {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 20px 60px rgba(232,255,71,0.1);
+    background: rgba(232,255,71,0.03);
+  }
+
+  .drop-icon { font-size: 48px; display: block; margin-bottom: 16px; animation: float 3s ease-in-out infinite; }
+  @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+  .drop-title { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 3px; margin-bottom: 8px; }
+  .drop-sub   { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+
+  .browse-fake-btn {
+    display: inline-block; padding: 10px 28px; background: var(--accent);
+    color: #000; font-family: 'Space Mono', monospace; font-size: 12px;
+    font-weight: 700; letter-spacing: 2px; border-radius: 6px;
+  }
+
+  /* hidden native input — label "for" wires it up without JS */
+  #file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+
+  /* File Info */
+  .file-info {
+    display: none; width: 100%; max-width: 680px; margin-top: 20px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px 24px; align-items: center; gap: 16px;
+  }
+  .file-info.visible { display: flex; }
+
+  .file-icon-wrap {
+    width: 48px; height: 48px; border-radius: 10px;
+    background: rgba(232,255,71,0.1); display: flex; align-items: center;
+    justify-content: center; font-size: 22px; flex-shrink: 0;
+  }
+
+  .file-details { flex: 1; min-width: 0; }
+  .file-name { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-meta { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  .remove-btn {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; transition: all 0.2s;
+  }
+  .remove-btn:hover { border-color: var(--error); color: var(--error); }
+
+  /* Waveform */
+  .waveform-wrap {
+    display: none; width: 100%; max-width: 680px; margin-top: 12px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px;
+  }
+  .waveform-wrap.visible { display: block; }
+  canvas#waveform { width: 100%; height: 60px; display: block; border-radius: 6px; }
+
+  /* Section */
+  .section-label {
+    width: 100%; max-width: 680px; margin: 36px 0 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .section-label h2 { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px; color: var(--muted); }
+  .section-line { flex: 1; height: 1px; background: var(--border); }
+
+  /* Formats */
+  .formats-grid {
+    width: 100%; max-width: 680px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px;
+  }
+
+  .format-card {
+    background: var(--card); border: 1.5px solid var(--border); border-radius: 12px;
+    padding: 16px; cursor: pointer; transition: all 0.2s; position: relative; user-select: none;
+  }
+  .format-card:hover { border-color: rgba(232,255,71,0.4); transform: translateY(-2px); }
+  .format-card.selected { border-color: var(--accent); background: rgba(232,255,71,0.06); }
+
+  .format-ext { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 2px; line-height: 1; }
+  .format-card.selected .format-ext { color: var(--accent); }
+  .format-desc { font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+
+  .check-mark {
+    position: absolute; top: 10px; right: 10px; width: 18px; height: 18px;
+    background: var(--accent); border-radius: 50%; display: none;
+    align-items: center; justify-content: center; font-size: 10px; color: #000; font-weight: bold;
+  }
+  .format-card.selected .check-mark { display: flex; }
+
+  /* Convert */
+  .convert-section { width: 100%; max-width: 680px; margin-top: 28px; }
+
+  .convert-btn {
+    width: 100%; padding: 18px; background: var(--accent);
+    border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px; letter-spacing: 4px; color: #000; cursor: pointer; transition: all 0.3s;
+  }
+  .convert-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+  .convert-btn:not(:disabled):hover { background: #fff; transform: translateY(-2px); box-shadow: 0 12px 40px rgba(232,255,71,0.3); }
+
+  /* Progress */
+  .progress-wrap { display: none; margin-top: 16px; }
+  .progress-wrap.visible { display: block; }
+  .progress-bar-bg { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; width: 0%; }
+  .progress-label { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 8px; text-align: center; }
+
+  /* Status */
+  .status-msg { font-family: 'Space Mono', monospace; font-size: 11px; margin-top: 12px; text-align: center; min-height: 18px; }
+  .status-msg.error   { color: var(--error); }
+  .status-msg.success { color: var(--success); }
+  .status-msg.info    { color: var(--muted); }
+
+  /* Downloads */
+  .downloads { width: 100%; max-width: 680px; margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
+
+  .download-item {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 20px; display: flex; align-items: center; gap: 14px;
+    animation: slideIn 0.4s ease forwards;
+  }
+  @keyframes slideIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+
+  .dl-icon { font-size: 20px; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; background: rgba(71,255,184,0.1); border-radius: 8px; flex-shrink: 0; }
+  .dl-info { flex: 1; }
+  .dl-name { font-size: 13px; font-weight: 500; }
+  .dl-size { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  .dl-btn {
+    padding: 8px 18px; background: var(--success); border: none; border-radius: 8px;
+    font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; color: #000;
+    cursor: pointer; text-decoration: none; transition: all 0.2s; white-space: nowrap; display: inline-block;
+  }
+  .dl-btn:hover { background: #fff; transform: scale(1.04); }
+
+  /* Notice */
+  .notice {
+    width: 100%; max-width: 680px; margin-top: 16px; padding: 14px 18px;
+    background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.2); border-radius: 10px;
+    font-size: 12px; color: var(--accent2); font-family: 'Space Mono', monospace; line-height: 1.6; display: none;
+  }
+  .notice.visible { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">AUDIO FORGE</div>
+  <div class="tagline">BROWSER-BASED FORMAT CONVERTER</div>
+  <div class="badge">100% Local · <span>No Upload</span> · Privacy First</div>
+</header>
+
+<!--
+  KEY FIX: wrapping the drop zone in <label for="file-input">
+  makes any click inside it open the native file picker — no JS .click() needed.
+  This works in Brave/Chrome without any extra permissions.
+-->
+<label class="upload-label" for="file-input" id="upload-label">
+  <div class="drop-zone" id="drop-zone">
+    <span class="drop-icon">🎵</span>
+    <div class="drop-title">DROP YOUR AUDIO HERE</div>
+    <div class="drop-sub">Supports MP3, WAV, OGG, FLAC, AAC, M4A, OPUS, WebM &amp; more</div>
+    <div class="browse-fake-btn">BROWSE FILE</div>
+  </div>
+</label>
+
+<input type="file" id="file-input" accept="audio/*">
+
+<!-- File Info -->
+<div class="file-info" id="file-info">
+  <div class="file-icon-wrap">🎧</div>
+  <div class="file-details">
+    <div class="file-name" id="file-name">—</div>
+    <div class="file-meta" id="file-meta">—</div>
+  </div>
+  <button class="remove-btn" id="remove-btn">✕ Remove</button>
+</div>
+
+<!-- Waveform -->
+<div class="waveform-wrap" id="waveform-wrap">
+  <canvas id="waveform"></canvas>
+</div>
+
+<!-- Formats -->
+<div class="section-label">
+  <h2>Output Formats</h2>
+  <div class="section-line"></div>
+</div>
+<div class="formats-grid" id="formats-grid"></div>
+
+<!-- Convert -->
+<div class="convert-section">
+  <button class="convert-btn" id="convert-btn" disabled>⚡ CONVERT NOW</button>
+  <div class="status-msg info" id="status-msg">Select a file and choose output formats</div>
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+    <div class="progress-label" id="progress-label">Processing...</div>
+  </div>
+</div>
+
+<div class="notice" id="notice">
+  ⚠ Brave/Chromium supports: WAV (always), WebM, OGG, OPUS well.
+  MP3 encoding is rarely supported in browsers — use WAV then convert offline if needed.
+  FLAC / AAC / M4A may show "Not supported" — this is a browser limitation, not a bug.
+</div>
+
+<div class="downloads" id="downloads"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var FORMATS = [
+    { ext: 'wav',  mime: 'audio/wav',              desc: 'Lossless · universal',        icon: '🔊' },
+    { ext: 'mp3',  mime: 'audio/mpeg',             desc: 'Compressed · popular',         icon: '🎵' },
+    { ext: 'ogg',  mime: 'audio/ogg',              desc: 'Open-source lossy',            icon: '🎶' },
+    { ext: 'webm', mime: 'audio/webm',             desc: 'Web-optimized',                icon: '🌐' },
+    { ext: 'opus', mime: 'audio/ogg; codecs=opus', desc: 'High quality · low bitrate',  icon: '📡' },
+    { ext: 'flac', mime: 'audio/flac',             desc: 'Lossless compressed',          icon: '💎' },
+    { ext: 'm4a',  mime: 'audio/mp4',              desc: 'AAC in MPEG-4',                icon: '📱' },
+    { ext: 'aac',  mime: 'audio/aac',              desc: 'Advanced Audio Codec',         icon: '🔷' },
+  ];
+
+  var currentFile  = null;
+  var audioBuffer  = null;
+  var selectedFmts = new Set();
+  var audioCtx     = null;
+
+  var fileInput    = document.getElementById('file-input');
+  var uploadLabel  = document.getElementById('upload-label');
+  var fileInfo     = document.getElementById('file-info');
+  var fileNameEl   = document.getElementById('file-name');
+  var fileMetaEl   = document.getElementById('file-meta');
+  var removeBtn    = document.getElementById('remove-btn');
+  var waveformWrap = document.getElementById('waveform-wrap');
+  var convertBtn   = document.getElementById('convert-btn');
+  var statusMsg    = document.getElementById('status-msg');
+  var progressWrap = document.getElementById('progress-wrap');
+  var progressFill = document.getElementById('progress-fill');
+  var progressLbl  = document.getElementById('progress-label');
+  var downloadsEl  = document.getElementById('downloads');
+  var noticeEl     = document.getElementById('notice');
+
+  // Build grid
+  var grid = document.getElementById('formats-grid');
+  FORMATS.forEach(function (f) {
+    var card = document.createElement('div');
+    card.className = 'format-card';
+    card.dataset.ext = f.ext;
+    card.innerHTML =
+      '<div class="check-mark">✓</div>' +
+      '<div class="format-ext">.' + f.ext.toUpperCase() + '</div>' +
+      '<div class="format-desc">' + f.desc + '</div>';
+    card.addEventListener('click', function () { toggleFormat(f.ext, card); });
+    grid.appendChild(card);
+  });
+
+  // File input change
+  fileInput.addEventListener('change', function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (f) loadFile(f);
+    fileInput.value = '';
+  });
+
+  // Drag & drop on the label
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    uploadLabel.addEventListener(ev, function (e) {
+      e.preventDefault(); e.stopPropagation();
+      uploadLabel.classList.add('dragover');
+    });
+  });
+
+  ['dragleave', 'dragend'].forEach(function (ev) {
+    uploadLabel.addEventListener(ev, function (e) {
+      e.preventDefault();
+      uploadLabel.classList.remove('dragover');
+    });
+  });
+
+  uploadLabel.addEventListener('drop', function (e) {
+    e.preventDefault(); e.stopPropagation();
+    uploadLabel.classList.remove('dragover');
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f) { setStatus('No file detected.', 'error'); return; }
+    if (!f.type.startsWith('audio/') && !isAudioExt(f.name)) {
+      setStatus('Please drop an audio file.', 'error'); return;
+    }
+    loadFile(f);
+  });
+
+  // Fallback: whole body drop
+  document.body.addEventListener('dragover', function (e) { e.preventDefault(); });
+  document.body.addEventListener('drop', function (e) {
+    e.preventDefault();
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f && (f.type.startsWith('audio/') || isAudioExt(f.name))) loadFile(f);
+  });
+
+  function isAudioExt(name) {
+    return /\.(mp3|wav|ogg|flac|aac|m4a|opus|webm|wma|aiff|au)$/i.test(name || '');
+  }
+
+  removeBtn.addEventListener('click', removeFile);
+  convertBtn.addEventListener('click', function () { startConvert(); });
+
+  function toggleFormat(ext, card) {
+    if (selectedFmts.has(ext)) { selectedFmts.delete(ext); card.classList.remove('selected'); }
+    else                        { selectedFmts.add(ext);    card.classList.add('selected');    }
+    updateBtn();
+  }
+
+  function updateBtn() {
+    convertBtn.disabled = !(currentFile && selectedFmts.size > 0);
+  }
+
+  function loadFile(file) {
+    currentFile = file;
+    fileNameEl.textContent = file.name;
+    fileMetaEl.textContent = (file.type || 'audio') + ' · ' + (file.size / 1048576).toFixed(2) + ' MB';
+    fileInfo.classList.add('visible');
+    noticeEl.classList.add('visible');
+    downloadsEl.innerHTML = '';
+    setStatus('File loaded. Choose formats then hit CONVERT.', 'info');
+    updateBtn();
+    decodeAndDraw(file);
+  }
+
+  function removeFile() {
+    currentFile = null; audioBuffer = null; selectedFmts.clear();
+    fileInfo.classList.remove('visible');
+    waveformWrap.classList.remove('visible');
+    noticeEl.classList.remove('visible');
+    downloadsEl.innerHTML = '';
+    document.querySelectorAll('.format-card.selected').forEach(function (c) { c.classList.remove('selected'); });
+    setStatus('Select a file and choose output formats', 'info');
+    updateBtn();
+  }
+
+  function getCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  async function decodeAndDraw(file) {
+    try {
+      var ctx = getCtx();
+      var ab = await file.arrayBuffer();
+      audioBuffer = await ctx.decodeAudioData(ab);
+      drawWaveform(audioBuffer);
+    } catch (e) { console.warn('Waveform:', e); }
+  }
+
+  function drawWaveform(buf) {
+    waveformWrap.classList.add('visible');
+    var canvas = document.getElementById('waveform');
+    var dpr = window.devicePixelRatio || 1;
+    var W = canvas.offsetWidth, H = 60;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    var ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    var data = buf.getChannelData(0);
+    var step = Math.ceil(data.length / W);
+    ctx.fillStyle = '#0a0a0f'; ctx.fillRect(0, 0, W, H);
+    var g = ctx.createLinearGradient(0, 0, W, 0);
+    g.addColorStop(0, '#e8ff47'); g.addColorStop(0.5, '#a0ff00'); g.addColorStop(1, '#47ffb8');
+    ctx.strokeStyle = g; ctx.lineWidth = 1.5; ctx.beginPath();
+    for (var i = 0; i < W; i++) {
+      var lo = 1, hi = -1;
+      for (var j = 0; j < step; j++) {
+        var v = data[i * step + j] || 0;
+        if (v < lo) lo = v; if (v > hi) hi = v;
+      }
+      ctx.moveTo(i, ((1 + lo) / 2) * H);
+      ctx.lineTo(i, ((1 + hi) / 2) * H);
+    }
+    ctx.stroke();
+  }
+
+  function setStatus(msg, type) {
+    statusMsg.textContent = msg;
+    statusMsg.className = 'status-msg ' + (type || 'info');
+  }
+
+  function setProgress(pct, lbl) {
+    progressFill.style.width = pct + '%';
+    progressLbl.textContent = lbl;
+  }
+
+  async function startConvert() {
+    if (!currentFile || !selectedFmts.size) return;
+    convertBtn.disabled = true;
+    downloadsEl.innerHTML = '';
+    progressWrap.classList.add('visible');
+    setProgress(0, 'Starting…');
+
+    var ctx = getCtx();
+
+    if (!audioBuffer) {
+      try {
+        audioBuffer = await ctx.decodeAudioData(await currentFile.arrayBuffer());
+      } catch (e) {
+        setStatus('Decode failed: ' + e.message, 'error');
+        progressWrap.classList.remove('visible');
+        convertBtn.disabled = false;
+        return;
+      }
+    }
+
+    var fmts = Array.from(selectedFmts);
+    var base = currentFile.name.replace(/\.[^.]+$/, '');
+
+    for (var i = 0; i < fmts.length; i++) {
+      var fmt = FORMATS.find(function (f) { return f.ext === fmts[i]; });
+      setProgress(Math.round(i / fmts.length * 100), 'Converting .' + fmt.ext.toUpperCase() + ' (' + (i+1) + '/' + fmts.length + ')…');
+      setStatus('Converting to ' + fmt.ext.toUpperCase() + '…', 'info');
+      try {
+        var blob = await convertTo(audioBuffer, fmt, ctx);
+        addDownload(base, fmt, blob);
+      } catch (err) {
+        addDownloadError(fmt, err.message);
+      }
+      await new Promise(function (r) { setTimeout(r, 80); });
+    }
+
+    setProgress(100, 'All done!');
+    setStatus('✓ Done! ' + fmts.length + ' file(s) ready below.', 'success');
+    convertBtn.disabled = false; updateBtn();
+  }
+
+  async function convertTo(buf, fmt, ctx) {
+    if (fmt.ext === 'wav') return bufToWav(buf);
+
+    var off = new OfflineAudioContext(buf.numberOfChannels, buf.length, buf.sampleRate);
+    var src = off.createBufferSource();
+    src.buffer = buf; src.connect(off.destination); src.start(0);
+    var rendered = await off.startRendering();
+
+    var mime = supportedMime(fmt);
+    if (!mime) throw new Error(fmt.ext.toUpperCase() + ' not supported in this browser. Try WAV or WebM.');
+    return await mediaRecorderEncode(rendered, mime, ctx);
+  }
+
+  function supportedMime(fmt) {
+    var map = {
+      mp3:  ['audio/mpeg'],
+      ogg:  ['audio/ogg; codecs=vorbis', 'audio/ogg'],
+      webm: ['audio/webm; codecs=opus', 'audio/webm'],
+      opus: ['audio/ogg; codecs=opus', 'audio/webm; codecs=opus'],
+      flac: ['audio/flac'],
+      m4a:  ['audio/mp4'],
+      aac:  ['audio/aac', 'audio/mp4'],
+    };
+    var list = map[fmt.ext] || [fmt.mime];
+    for (var i = 0; i < list.length; i++) {
+      if (MediaRecorder.isTypeSupported(list[i])) return list[i];
+    }
+    return null;
+  }
+
+  function mediaRecorderEncode(buf, mimeType, ctx) {
+    return new Promise(function (resolve, reject) {
+      var dest = ctx.createMediaStreamDestination();
+      var src  = ctx.createBufferSource();
+      src.buffer = buf; src.connect(dest);
+      var rec;
+      try { rec = new MediaRecorder(dest.stream, { mimeType: mimeType }); }
+      catch (e) { return reject(new Error('MediaRecorder: ' + e.message)); }
+      var chunks = [];
+      rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = function () { resolve(new Blob(chunks, { type: mimeType.split(';')[0] })); };
+      rec.onerror = function () { reject(new Error('Encoding error')); };
+      rec.start(); src.start(0);
+      src.onended = function () { setTimeout(function () { rec.stop(); }, 300); };
+    });
+  }
+
+  function bufToWav(buf) {
+    var nCh = buf.numberOfChannels, sr = buf.sampleRate, len = buf.length;
+    var dataLen = len * nCh * 2;
+    var ab = new ArrayBuffer(44 + dataLen), v = new DataView(ab);
+    function ws(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o+i, s.charCodeAt(i)); }
+    ws(0,'RIFF'); v.setUint32(4, 36+dataLen, true); ws(8,'WAVE');
+    ws(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true);
+    v.setUint16(22,nCh,true); v.setUint32(24,sr,true);
+    v.setUint32(28,sr*nCh*2,true); v.setUint16(32,nCh*2,true); v.setUint16(34,16,true);
+    ws(36,'data'); v.setUint32(40,dataLen,true);
+    var off = 44, ch = [];
+    for (var c = 0; c < nCh; c++) ch.push(buf.getChannelData(c));
+    for (var i = 0; i < len; i++) {
+      for (var c = 0; c < nCh; c++) {
+        var s = Math.max(-1, Math.min(1, ch[c][i]));
+        v.setInt16(off, s < 0 ? s*0x8000 : s*0x7FFF, true); off += 2;
+      }
+    }
+    return new Blob([ab], { type: 'audio/wav' });
+  }
+
+  function addDownload(base, fmt, blob) {
+    var url = URL.createObjectURL(blob);
+    var item = document.createElement('div');
+    item.className = 'download-item';
+    item.innerHTML =
+      '<div class="dl-icon">' + fmt.icon + '</div>' +
+      '<div class="dl-info">' +
+        '<div class="dl-name">' + base + '.' + fmt.ext + '</div>' +
+        '<div class="dl-size">' + (blob.size/1048576).toFixed(2) + ' MB · ' + fmt.desc + '</div>' +
+      '</div>' +
+      '<a class="dl-btn" href="' + url + '" download="' + base + '.' + fmt.ext + '">⬇ SAVE</a>';
+    downloadsEl.appendChild(item);
+  }
+
+  function addDownloadError(fmt, msg) {
+    var item = document.createElement('div');
+    item.className = 'download-item';
+    item.style.borderColor = 'rgba(255,71,71,0.3)';
+    item.innerHTML =
+      '<div class="dl-icon" style="background:rgba(255,71,71,0.1)">⚠️</div>' +
+      '<div class="dl-info">' +
+        '<div class="dl-name" style="color:#ff4747">.' + fmt.ext.toUpperCase() + ' — Not supported</div>' +
+        '<div class="dl-size" style="color:#ff6666">' + msg + '</div>' +
+      '</div>';
+    downloadsEl.appendChild(item);
+  }
+
+})();
+</script>
+</body>
+</html>
